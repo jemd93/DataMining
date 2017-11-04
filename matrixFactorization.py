@@ -10,6 +10,10 @@ from scipy.sparse import lil_matrix
 from scipy.sparse.linalg import spsolve
 from sklearn.decomposition import NMF
 from scipy.sparse.linalg import svds
+from surprise import SVD
+from surprise import Dataset
+from surprise import evaluate, print_perf
+from surprise import Reader
 
 
 numUsers = 693208
@@ -66,23 +70,78 @@ def readData(filename):
 
 # Main program	    		
 if __name__ == '__main__':
+
+	# Read csv into a pandas dataframe
+	dfRatings = pd.read_csv(sys.argv[1])
+	dfTest = pd.read_csv(sys.argv[2])
+	# Delete unused columns
+	del dfRatings['date']
+	del dfRatings['train_id']
+	del dfTest['date']
+	del dfTest['test_id']
+
+
+	# Set the rating scale and create the data for Surprise to use
+	reader = Reader(rating_scale=(1, 5))
+	data = Dataset.load_from_df(dfRatings[['user_id', 'business_id', 'rating']], reader)
+
+	# Cross validation for tuning
+	# Split in 5 folds
+	# data.split(5) 
+
+	# factors = 50
+	# epochs = 20
+	# lr = 0.01
+	# reg = 0.02
+	# while lr < 0.2 :
+	# 	algo = SVD(n_factors=factors,n_epochs=epochs,lr_all=lr,reg_all=reg)
+
+	# 	# Evaluate the model with 5-fold cross validation
+	# 	perf = evaluate(algo,data,measures=['RMSE'])
+	# 	print("------------------------------")
+	# 	print("LearnRate = " + str(lr))
+	# 	print_perf(perf)
+
+	# 	lr += 0.01
+
+
+
+	# This part is to use all the data to train and get the output
+	# So far 0.005 LR and 50 factors is the best.
+	train_set = data.build_full_trainset() 
+	# Use SVD with surprise
+	algo = SVD(n_factors=50)
+	algo.train(train_set)
+
+	f = open('testOutput.csv','w')
+	for i in range(len(dfTest)) :
+		prediction = algo.predict(dfTest.at[i,'user_id'],dfTest.at[i,'business_id'],r_ui=4,verbose=True)
+		predRating = prediction.est
+		f.write(str(i)+","+str(predRating)+'\n')
+
+	f.close()
+
+
+
+	# algo = SVD()
+	# perf = evaluate(algo,data,measures=['RMSE','MAE'])
+	# print(perf)
+
+	# LEAVING THIS STUFF FOR NOW IN CASE WE WANNA TEST OR SOMETHING.
 	# Training instance ID, user ID and item ID, rating, date
-	ratings = readData(sys.argv[1])
-	# dfRatings = pd.read_csv(sys.argv[1])
-
-	userRatings = lil_matrix((numUsers,numItems))
-	for row in ratings :
-		if row[0] != "train_id" :
-			if (row[1] < numUsers) and (row[2] < numItems) : 	
-				userRatings[row[1]-1,row[2]-1] = row[3]
-
+	# ratings = readData(sys.argv[1])
+	# userRatings = lil_matrix((numUsers,numItems))
+	# for row in ratings :
+	# 	if row[0] != "train_id" :
+	# 		if (int(row[1]) < numUsers) and (int(row[2]) < numItems) : 	
+	# 			userRatings[row[1]-1,row[2]-1] = row[3]
 
 	# CODE WITH SINGULAR VALUE DECOMPOSITION (SVD) :
-	U, sigma, Vt = svds(userRatings, k = 50) # U and Vt are the user feature and item feature matrix
-	sigma = np.diag(sigma) # Diagonal matrix
-	allPredictions = np.dot(np.dot(U, sigma), Vt)
+	# U, sigma, Vt = svds(userRatings, k = 50) # U and Vt are the user feature and item feature matrix
+	# sigma = np.diag(sigma) # Diagonal matrix
+	# allPredictions = np.dot(np.dot(U, sigma), Vt)
 
-	print(allPredictions)
+	# print(allPredictions)
 
 	# CODE OBTAINED FROM A BLOG
 	# features = 20
