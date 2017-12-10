@@ -28,7 +28,7 @@ if __name__ == '__main__':
     test = spark.createDataFrame(test_raw)
 
     # Create ALS predictor, fit the model and generate the predictions
-    als = ALS(userCol="user_id", itemCol="business_id", ratingCol="rating")
+    als = ALS(userCol="user_id", itemCol="business_id", ratingCol="rating",maxIter=20,alpha=0.005)
     model = als.fit(train)
     predictions = model.transform(test)
 
